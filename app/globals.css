@@ -1,26 +1,336 @@
 @import "tailwindcss";
 
+/* ===== カラー変数 ===== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0f2910;
+  --bg-card: rgba(255 255 255 / 0.06);
+  --bg-card-top: rgba(234 179 8 / 0.15);
+  --border: rgba(255 255 255 / 0.12);
+  --border-top: rgba(234 179 8 / 0.5);
+  --text: #f0f0f0;
+  --text-muted: #9ca3af;
+  --accent: #eab308;
+  --accent-dark: #ca8a04;
+  --pos: #fde047;
+  --neg: #f87171;
+  --zero: #d1d5db;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ===== ベース ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", Arial, sans-serif;
+  /* iOSでinput拡大を防ぐ */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ===== 画面共通 ===== */
+.setup-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.setup-inner {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.game-screen {
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ===== タイトル ===== */
+.app-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+  margin: 0;
+  letter-spacing: 0.05em;
+}
+
+.app-subtitle {
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+/* ===== 名前入力 ===== */
+.name-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.player-label {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.875rem;
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+.name-input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.875rem;
+  color: var(--text);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.name-input:focus {
+  border-color: var(--accent);
+}
+
+/* ===== スコアボード ===== */
+.scoreboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.score-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.875rem;
+  padding: 0.75rem 1rem;
+}
+
+.score-card--top {
+  background: var(--bg-card-top);
+  border-color: var(--border-top);
+}
+
+.rank-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+.player-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.total-score {
+  font-size: 1.5rem;
+  font-weight: 700;
+  min-width: 4rem;
+  text-align: right;
+}
+
+/* ===== 入力セクション ===== */
+.input-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+  text-align: center;
+  margin: 0;
+}
+
+.score-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.score-input-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.score-input-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score-input {
+  background: rgba(0 0 0 / 0.3);
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 0.625rem 0.5rem;
+  color: var(--text);
+  font-size: 1.125rem;
+  text-align: center;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+  /* iOSでzoomしないよう16px以上 */
+  font-size: 16px;
+}
+
+.score-input:focus {
+  border-color: var(--accent);
+}
+
+/* ===== ボタン ===== */
+.btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: #0f2910;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.btn-primary:active {
+  background: var(--accent-dark);
+}
+
+.btn-primary:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.btn-reset {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.5rem;
+  text-align: center;
+  width: 100%;
+}
+
+/* ===== 履歴テーブル ===== */
+.history-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.history-table th {
+  color: var(--text-muted);
+  padding: 0.375rem 0.25rem;
+  font-weight: 500;
+}
+
+.th-round {
+  width: 2rem;
+}
+
+.th-player {
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row {
+  border-top: 1px solid rgba(255 255 255 / 0.07);
+}
+
+.total-row {
+  border-top: 1px solid rgba(255 255 255 / 0.2);
+  background: rgba(255 255 255 / 0.04);
+}
+
+.td-round {
+  color: var(--text-muted);
+  padding: 0.375rem 0;
+}
+
+.td-score {
+  padding: 0.375rem 0.25rem;
+}
+
+/* ===== スコア色 ===== */
+.score-pos {
+  color: var(--pos);
+}
+
+.score-neg {
+  color: var(--neg);
+}
+
+.score-zero {
+  color: var(--zero);
+}
+
+/* ===== エラー ===== */
+.error-msg {
+  color: #f87171;
+  font-size: 0.8125rem;
+  text-align: center;
+  margin: 0;
 }
