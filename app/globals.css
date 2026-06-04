@@ -556,6 +556,58 @@ body {
 .rank3 { color: var(--rank3); font-weight: 600; }
 .rank4 { color: var(--rank4); }
 
+/* ===== ±ボタン（Setup画面：インライン横並び） ===== */
+.pm-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 42px;       /* num-input と高さを揃える */
+  background: rgba(212, 160, 23, 0.12);
+  border: 1px solid var(--border-acc);
+  border-radius: 6px;
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s;
+  user-select: none;
+}
+.pm-btn:active {
+  background: rgba(212, 160, 23, 0.28);
+}
+
+/* ===== ±ボタン（GameCard：カラム内全幅・小サイズ） ===== */
+.pm-btn-sm {
+  width: 100%;
+  background: rgba(212, 160, 23, 0.1);
+  border: 1px solid var(--border-acc);
+  border-radius: 5px;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 0;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  user-select: none;
+  margin-bottom: 3px; /* 次のラベルとの間隔 */
+}
+.pm-btn-sm:active {
+  background: rgba(212, 160, 23, 0.25);
+}
+
+/* チップ用の±ボタン：青みがかった色でチップ欄と対応 */
+.chip-pm {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: #3d4a8a;
+  color: #818cf8;
+  margin-bottom: 0;
+}
+.chip-pm:active {
+  background: rgba(99, 102, 241, 0.25);
+}
+
 /* ===== 数値入力のスピナー非表示（スマホUI） ===== */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {

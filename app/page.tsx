@@ -13,12 +13,11 @@ type Settings = {
   basePoints: number;
   pointRate: number;
   chipRate: number;
-  // ウマは string[] で保持（iOSで "-10" などの入力途中値を保持するため）
-  uma: string[];
+  uma: string[]; // string[] で保持（入力途中の "-" を許容するため）
 };
 
 type GameEntry = {
-  finalPoints: string[]; // 最終持ち点（文字列 → 計算時に Number 変換）
+  finalPoints: string[]; // 最終持ち点（文字列管理 → 計算時に変換）
   chips: string[];       // チップ枚数（マイナス可）
 };
 
@@ -33,13 +32,42 @@ type GameResult = {
 };
 
 // ===== 定数 =====
-// ウマは string[] で定義（"-10" などをそのまま扱う）
 const UMA_DEFAULTS: Record<PlayerCount, string[]> = {
   4: ["20", "10", "-10", "-20"],
   3: ["15", "0", "-15"],
 };
 const RANK_LABELS = ["1位", "2位", "3位", "4位"];
 const RANK_CLS = ["rank1", "rank2", "rank3", "rank4"];
+
+// ===== 入力ヘルパー（iOS マイナス対応の核心部分） =====
+
+/**
+ * 整数（マイナス可）のみ許可するバリデーション。
+ * 正規表現で数字と先頭の「-」だけ通す。
+ * 例: "" → OK, "-" → OK（入力途中）, "-10" → OK, "1.5" → NG
+ */
+function allowNegInt(v: string): boolean {
+  return /^-?\d*$/.test(v);
+}
+
+/**
+ * 文字列 → 数値変換。
+ * "-" や "" は 0 として扱う（計算時のNaN防止）。
+ */
+function toNum(v: string): number {
+  if (v === "" || v === "-") return 0;
+  return Number(v);
+}
+
+/**
+ * ±ボタン用：符号を切り替える。
+ * "10" → "-10"、"-10" → "10"、"" → "-"
+ */
+function toggleMinus(v: string): string {
+  if (v.startsWith("-")) return v.slice(1); // マイナス除去
+  if (v === "") return "-";                 // 空欄 → 入力開始
+  return `-${v}`;                           // プラス → マイナス
+}
 
 // ===== ファクトリ =====
 function makeSettings(n: PlayerCount): Settings {
@@ -60,11 +88,13 @@ function makeGame(n: number): GameEntry {
 
 // ===== 計算ロジック =====
 function calcGame(game: GameEntry, s: Settings): GameResult[] | null {
-  if (game.finalPoints.some((v) => v === "")) return null;
+  // 空欄または入力途中の "-" があれば計算しない
+  if (game.finalPoints.some((v) => v === "" || v === "-")) return null;
 
-  const fp = game.finalPoints.map(Number);
-  const ch = game.chips.map((v) => (v === "" ? 0 : Number(v)));
+  const fp = game.finalPoints.map(toNum); // toNum で安全に数値変換
+  const ch = game.chips.map(toNum);       // "-" や "" は 0 として扱う
 
+  // 順位決定：持ち点降順、同点は入力順
   const rankOf: number[] = new Array(s.playerCount);
   fp.map((p, i) => ({ p, i }))
     .sort((a, b) => b.p - a.p || a.i - b.i)
@@ -72,8 +102,7 @@ function calcGame(game: GameEntry, s: Settings): GameResult[] | null {
 
   return fp.map((p, i) => {
     const raw = (p - s.basePoints) / 1000;
-    // ウマ文字列 → 数値変換（"-" や "" は 0 として扱う）
-    const umaVal = parseFloat(s.uma[rankOf[i] - 1]) || 0;
+    const umaVal = toNum(s.uma[rankOf[i] - 1]); // ウマも toNum で変換
     const final = raw + umaVal;
     const pointAmt = Math.round(final * s.pointRate);
     const chipAmt = ch[i] * s.chipRate;
@@ -139,11 +168,10 @@ export default function Home() {
 
   const allResults = games.map((g) => calcGame(g, settings));
 
-  // プレイヤーごとの合計スコア・金額・チップ枚数
   const totals = settings.names.map((_, pi) => ({
     score:  allResults.reduce((s, r) => s + (r ? r[pi].finalScore : 0), 0),
     amount: allResults.reduce((s, r) => s + (r ? r[pi].totalAmount : 0), 0),
-    chips:  games.reduce((s, g) => s + (g.chips[pi] === "" ? 0 : Number(g.chips[pi])), 0),
+    chips:  games.reduce((s, g) => s + toNum(g.chips[pi]), 0), // toNum で安全集計
   }));
 
   return (
@@ -166,7 +194,6 @@ export default function Home() {
         ))}
       </nav>
 
-      {/* score タブ時は固定フッター分の下余白を追加 */}
       <div className={`page-body${tab === "score" ? " page-body--score" : ""}`}>
         {tab === "setup" && (
           <SetupTab
@@ -213,14 +240,21 @@ function SetupTab({ settings: s, onChange, onCountChange, onSave }: SetupTabProp
     upd("names", names);
   }
 
-  // ウマ入力：文字列のまま保持（"-10" の途中入力 "-" を許容）
+  // ウマ入力：allowNegInt を通過した文字列のみ保存
   function setUma(i: number, v: string) {
+    if (!allowNegInt(v)) return; // 数字・マイナス以外は弾く
     const uma = [...s.uma];
     uma[i] = v;
     upd("uma", uma);
   }
 
-  // ウマの表示用フォーマット（"+20" "-10" など）
+  // ウマの±ボタン
+  function toggleUmaMinus(i: number) {
+    const uma = [...s.uma];
+    uma[i] = toggleMinus(uma[i]);
+    upd("uma", uma);
+  }
+
   function fmtUma(u: string): string {
     const n = parseFloat(u);
     if (isNaN(n)) return u || "0";
@@ -264,7 +298,7 @@ function SetupTab({ settings: s, onChange, onCountChange, onSave }: SetupTabProp
         ))}
       </div>
 
-      {/* 点数・レート設定 */}
+      {/* 点数・レート設定（これらは常に正の値なので type="number" のまま） */}
       <div className="field-block">
         <div className="field-label">点数・レート設定</div>
         {(
@@ -291,7 +325,7 @@ function SetupTab({ settings: s, onChange, onCountChange, onSave }: SetupTabProp
         ))}
       </div>
 
-      {/* ウマ設定 */}
+      {/* ウマ設定（マイナス入力対応） */}
       <div className="field-block">
         <div className="field-label">ウマ設定</div>
         <p className="field-note">
@@ -303,17 +337,28 @@ function SetupTab({ settings: s, onChange, onCountChange, onSave }: SetupTabProp
             <span className="row-key">{i + 1}位</span>
             <div className="num-wrap">
               {/*
-                type="text" + inputMode="decimal" でiOSでも「-」が入力可能。
-                type="number" だとiOSのキーボードにマイナスキーが出ない場合がある。
+                iOS マイナス対応：
+                ・type="text"       → フルキーボード（マイナスキーあり）
+                ・inputMode="numeric" → iOSでテンキー優先表示
+                ・allowNegInt で数字・マイナス以外の入力を弾く
+                ・± ボタンで符号をワンタップ切替（テンキーにマイナスがない端末でも使える）
               */}
               <input
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 className="num-input"
                 value={u}
                 onChange={(e) => setUma(i, e.target.value)}
                 placeholder="例: -10"
               />
+              <button
+                type="button"
+                className="pm-btn"
+                onClick={() => toggleUmaMinus(i)}
+                aria-label={`${i + 1}位ウマの符号を切り替え`}
+              >
+                ±
+              </button>
               <span className="unit">pt</span>
             </div>
           </div>
@@ -351,7 +396,6 @@ function ScoreTab({ settings, games, allResults, totals, onUpdate, onAdd }: Scor
     <div className="score-tab">
       <h2 className="sec-title">点数計算</h2>
 
-      {/* 各ゲームカード */}
       {games.map((g, gi) => (
         <GameCard
           key={gi}
@@ -368,7 +412,7 @@ function ScoreTab({ settings, games, allResults, totals, onUpdate, onAdd }: Scor
         ＋ ゲームを追加
       </button>
 
-      {/* 画面下部に固定表示される合計成績バー */}
+      {/* 画面下部固定の合計成績バー */}
       <div className="score-footer">
         <div className="footer-title">▼ 合計成績</div>
         <div
@@ -409,12 +453,32 @@ type GameCardProps = {
 
 function GameCard({ gi, game, result, settings, expected, onUpdate }: GameCardProps) {
   const { names } = settings;
-  // 計算結果の開閉（初期状態：閉じる）
   const [resultOpen, setResultOpen] = useState(false);
 
-  const allEntered = game.finalPoints.every((v) => v !== "");
-  const fpSum = game.finalPoints.reduce((s, v) => s + (Number(v) || 0), 0);
+  // "-" も未確定として計算対象から除外
+  const allEntered = game.finalPoints.every((v) => v !== "" && v !== "-");
+  const fpSum = game.finalPoints.reduce((s, v) => s + toNum(v), 0);
   const sumOk = allEntered && fpSum === expected;
+
+  // 最終持ち点：allowNegInt でバリデーション後に保存
+  function updateFp(pi: number, v: string) {
+    if (allowNegInt(v)) onUpdate("finalPoints", pi, v);
+  }
+
+  // チップ枚数：allowNegInt でバリデーション後に保存
+  function updateChip(pi: number, v: string) {
+    if (allowNegInt(v)) onUpdate("chips", pi, v);
+  }
+
+  // 最終持ち点の±ボタン
+  function toggleFpMinus(pi: number) {
+    onUpdate("finalPoints", pi, toggleMinus(game.finalPoints[pi]));
+  }
+
+  // チップ枚数の±ボタン
+  function toggleChipMinus(pi: number) {
+    onUpdate("chips", pi, toggleMinus(game.chips[pi]));
+  }
 
   return (
     <div className="game-card">
@@ -428,7 +492,7 @@ function GameCard({ gi, game, result, settings, expected, onUpdate }: GameCardPr
         )}
       </div>
 
-      {/* 横並びグリッド入力（プレイヤーごとに縦並びで列を作る） */}
+      {/* 横並びグリッド入力 */}
       <div className="game-grid">
         <div
           className="game-grid-inner"
@@ -439,37 +503,55 @@ function GameCard({ gi, game, result, settings, expected, onUpdate }: GameCardPr
               {/* プレイヤー名 */}
               <div className="p-col-name">{name}</div>
 
-              {/* 最終持ち点 */}
+              {/* 最終持ち点（マイナス対応） */}
               <label className="p-col-lbl">最終持ち点</label>
               {/*
-                type="text" + inputMode="decimal" でiOSのテンキーを表示しつつ
-                「-」も入力できるようにする。type="number" だとiOSで「-」が出ない。
+                iOS マイナス対応：
+                ・type="text" inputMode="numeric" でテンキーを表示
+                ・allowNegInt で数字・マイナス以外を弾く
+                ・± ボタンで符号をワンタップ切替
               */}
               <input
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 className="score-inp"
                 value={game.finalPoints[pi]}
-                onChange={(e) => onUpdate("finalPoints", pi, e.target.value)}
+                onChange={(e) => updateFp(pi, e.target.value)}
                 placeholder="32000"
               />
+              <button
+                type="button"
+                className="pm-btn-sm"
+                onClick={() => toggleFpMinus(pi)}
+                aria-label="最終持ち点の符号を切り替え"
+              >
+                ±
+              </button>
 
-              {/* チップ枚数 */}
+              {/* チップ枚数（マイナス対応） */}
               <label className="p-col-lbl">チップ(枚)</label>
               <input
                 type="text"
-                inputMode="decimal"
+                inputMode="numeric"
                 className="score-inp chip-inp"
                 value={game.chips[pi]}
-                onChange={(e) => onUpdate("chips", pi, e.target.value)}
+                onChange={(e) => updateChip(pi, e.target.value)}
                 placeholder="0"
               />
+              <button
+                type="button"
+                className="pm-btn-sm chip-pm"
+                onClick={() => toggleChipMinus(pi)}
+                aria-label="チップ枚数の符号を切り替え"
+              >
+                ±
+              </button>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 計算結果（全員入力済みの場合に開閉ボタンを表示） */}
+      {/* 計算結果（全員入力済みのとき開閉ボタンを表示） */}
       {result && (
         <div className="result-wrap">
           <button
