@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 
 // ===== 型定義 =====
 type PlayerCount = 3 | 4;
@@ -150,23 +151,80 @@ export default function Home() {
     setTab("score");
   }
 
-  function updateGame(
-    gIdx: number,
-    field: "finalPoints" | "chips",
-    pIdx: number,
-    val: string
-  ) {
-    setGames((prev) =>
-      prev.map((g, i) => {
-        if (i !== gIdx) return g;
-        const arr = [...g[field]];
-        arr[pIdx] = val;
-        return { ...g, [field]: arr };
-      })
-    );
+function updateGame(
+  gIdx: number,
+  field: "finalPoints" | "chips",
+  pIdx: number,
+  val: string
+) {
+  setGames((prev) =>
+    prev.map((g, i) => {
+      if (i !== gIdx) return g;
+      const arr = [...g[field]];
+      arr[pIdx] = val;
+      return { ...g, [field]: arr };
+    })
+  );
+}
+
+async function saveGame(gIdx: number) {
+  const game = games[gIdx];
+  const result = calcGame(game, settings);
+
+  if (!result) {
+    alert("全員の最終持ち点を入力してください");
+    return;
   }
 
-  const allResults = games.map((g) => calcGame(g, settings));
+  const expected = settings.initialPoints * settings.playerCount;
+
+  const totalPoints = game.finalPoints.reduce(
+    (sum, value) => sum + toNum(value),
+    0
+  );
+
+  if (totalPoints !== expected) {
+    alert("最終持ち点の合計が一致していません");
+    return;
+  }
+
+  const row = {
+    player_count: settings.playerCount,
+
+    player1_name: settings.names[0],
+    player1_score: toNum(game.finalPoints[0]),
+    player1_chips: toNum(game.chips[0]),
+
+    player2_name: settings.names[1],
+    player2_score: toNum(game.finalPoints[1]),
+    player2_chips: toNum(game.chips[1]),
+
+    player3_name: settings.names[2],
+    player3_score: toNum(game.finalPoints[2]),
+    player3_chips: toNum(game.chips[2]),
+
+    player4_name:
+      settings.playerCount === 4 ? settings.names[3] : null,
+    player4_score:
+      settings.playerCount === 4 ? toNum(game.finalPoints[3]) : null,
+    player4_chips:
+      settings.playerCount === 4 ? toNum(game.chips[3]) : null,
+  };
+
+  const { error } = await supabase
+    .from("mahjong_games")
+    .insert(row);
+
+  if (error) {
+    console.error(error);
+    alert("保存に失敗しました");
+    return;
+  }
+
+  alert(`第${gIdx + 1}ゲームを保存しました`);
+}
+
+const allResults = games.map((g) => calcGame(g, settings));
 
   const totals = settings.names.map((_, pi) => ({
     score:  allResults.reduce((s, r) => s + (r ? r[pi].finalScore : 0), 0),
@@ -210,6 +268,7 @@ export default function Home() {
             allResults={allResults}
             totals={totals}
             onUpdate={updateGame}
+            onSaveGame={saveGame}
             onAdd={() => setGames((p) => [...p, makeGame(settings.playerCount)])}
           />
         )}
@@ -387,9 +446,19 @@ type ScoreTabProps = {
     val: string
   ) => void;
   onAdd: () => void;
+  onSaveGame: (gIdx: number) => void;
 };
 
-function ScoreTab({ settings, games, allResults, totals, onUpdate, onAdd }: ScoreTabProps) {
+function ScoreTab({
+  settings,
+  games,
+  allResults,
+  totals,
+  onUpdate,
+  onAdd,
+  onSaveGame,
+}: ScoreTabProps) 
+{
   const expected = settings.initialPoints * settings.playerCount;
 
   return (
@@ -405,6 +474,7 @@ function ScoreTab({ settings, games, allResults, totals, onUpdate, onAdd }: Scor
           settings={settings}
           expected={expected}
           onUpdate={(field, pi, val) => onUpdate(gi, field, pi, val)}
+          onSave={() => onSaveGame(gi)}
         />
       ))}
 
@@ -449,9 +519,18 @@ type GameCardProps = {
   settings: Settings;
   expected: number;
   onUpdate: (field: "finalPoints" | "chips", pi: number, val: string) => void;
+  onSave: () => void;
 };
 
-function GameCard({ gi, game, result, settings, expected, onUpdate }: GameCardProps) {
+function GameCard({
+  gi,
+  game,
+  result,
+  settings,
+  expected,
+  onUpdate,
+  onSave,
+}: GameCardProps) {
   const { names } = settings;
   const [resultOpen, setResultOpen] = useState(false);
 
@@ -598,6 +677,14 @@ function GameCard({ gi, game, result, settings, expected, onUpdate }: GameCardPr
           )}
         </div>
       )}
+      {result && sumOk && (
+  <button
+    className="btn-primary"
+    onClick={onSave}
+  >
+    このゲームを保存
+  </button>
+)}
     </div>
   );
 }
